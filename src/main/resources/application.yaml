@@ -15,7 +15,7 @@ api:
 
 
 restaurant-deals:
-  source-url: "https://eccdn.com.au/misc/challengedata.json"
+  url: "https://eccdn.com.au/misc/challengedata.json"
 
 logging:
   level:
