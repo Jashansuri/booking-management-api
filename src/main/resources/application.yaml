@@ -1,3 +1,25 @@
 spring:
   application:
     name: booking-management-api
+  jackson:
+    default-property-inclusion: non_null
+
+server:
+  compression:
+    enabled: true
+    mime-types: application/json
+  port: 8080
+
+api:
+  version: v1
+
+
+restaurant-deals:
+  source-url: "https://eccdn.com.au/misc/challengedata.json"
+
+logging:
+  level:
+    root: INFO
+    com.ec.bookingmanagementapi: DEBUG
+
+region: LOCAL
