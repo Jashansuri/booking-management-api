@@ -37,33 +37,10 @@ public class PeakWindowService {
 
         final var peakRange = findPeakWindowRange(activeDealsPerHour, maxActiveDeals);
 
-        final var peakStart = LocalTime.of(peakRange.startHour(), 0);
-        final var peakEnd = LocalTime.of(peakRange.endHour() + 1, 0);
+        final var peakStart = LocalTime.of(peakRange.startingHour(), 0);
+        final var peakEnd = LocalTime.of(peakRange.endingHour() + 1, 0);
 
         return new PeakTimeResponse(TimeUtils.format(peakStart), TimeUtils.format(peakEnd));
-    }
-
-    private int[] countActiveDealsPerHour(List<DealWindow> dealWindows) {
-        int[] counts = new int[HOURS_PER_DAY];
-
-        for (DealWindow window : dealWindows) {
-            for (int hour = 0; hour < HOURS_PER_DAY; hour++) {
-                final var sampleTime = LocalTime.of(hour, 30);
-                if (TimeUtils.isDealActive(sampleTime, window.dealStart(), window.dealEnd())) {
-                    counts[hour]++;
-                }
-            }
-        }
-
-        return counts;
-    }
-
-    private HourRange findPeakWindowRange(int[] counts, int peakValue) {
-//        TODO: Determine Peak Window by calculating longest consecutive range exactly max value
-//         -> alternatively need to look at either sliding window or give threshold to allow for small dips
-//         e.g. 3-5pm 10 deals, 5-6pm 7 deals then 6-9pm again 10 deals. that whole time can then potentially be a window?
-
-        return new HourRange(1, 2);
     }
 
     private List<DealWindow> loadDealWindows() {
@@ -82,4 +59,54 @@ public class PeakWindowService {
                 ).toList();
     }
 
+    private int[] countActiveDealsPerHour(List<DealWindow> dealWindows) {
+        int[] counts = new int[HOURS_PER_DAY];
+
+        for (DealWindow window : dealWindows) {
+            for (int hour = 0; hour < HOURS_PER_DAY; hour++) {
+                final var sampleTime = LocalTime.of(hour, 30);
+                if (TimeUtils.isDealActive(sampleTime, window.dealStart(), window.dealEnd())) {
+                    counts[hour]++;
+                }
+            }
+        }
+
+        return counts;
+    }
+
+    /**
+     * Finding the longest consecutive range of hours that have the peak value/counts of deals.
+     * E.g. if hours 2-5 and 8-12 both have peak value, this returns 8-12 (longer range).
+     *
+     * @param countOfActiveDeals Array where each index represents an hour and value is number of active deals
+     * @param peakDealsCount     The maximum number of active deals we're looking for
+     * @return HourRange or null if no peak found
+     */
+    private HourRange findPeakWindowRange(int[] countOfActiveDeals, int peakDealsCount) {
+        HourRange longestRange = null;
+        int maxLength = 0;
+
+        for (int hour = 0; hour < countOfActiveDeals.length; hour++) {
+            // Skip every hour that doesn't have the peakDealsCount
+            if (countOfActiveDeals[hour] != peakDealsCount) continue;
+
+            int windowEnd = hour;
+            // increment ending hour if subsequent hour is also peakDealsCount
+            while (windowEnd + 1 < countOfActiveDeals.length && countOfActiveDeals[windowEnd + 1] == peakDealsCount) {
+                windowEnd++;
+            }
+            final HourRange currentRange = new HourRange(hour, windowEnd);
+
+            // Update if range is longer than current peakDealsCount
+            if (currentRange.length() > maxLength) {
+                maxLength = currentRange.length();
+                longestRange = currentRange;
+            }
+
+            // set hour to be ending hour to avoid reprocessing already processed hours
+            hour = currentRange.endingHour();
+        }
+
+        return longestRange;
+    }
 }
