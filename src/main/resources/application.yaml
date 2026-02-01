@@ -16,6 +16,7 @@ api:
 
 restaurant-deals:
   url: "https://eccdn.com.au/misc/challengedata.json"
+  fallback-resource: "data/challengeData.json"
 
 logging:
   level:
