@@ -9,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -21,27 +23,45 @@ public class PeakWindowService {
     private final ChallengeDataClient client;
 
     public PeakTimeResponse calculatePeakWindow() {
-        return PeakTimeResponse.empty();
+        final var dealWindows = loadDealWindows();
+        if (dealWindows.isEmpty()) {
+            return PeakTimeResponse.empty();
+        }
 
-//        final var dealWindows = loadDealWindows();
-//        get active Deals per hour
-//        countActiveDealsPerHour(dealWindows)
+        final var activeDealsPerHour = countActiveDealsPerHour(dealWindows);
 
-//        determine hourRange containing the most deals/overlapping deals
-//        findBestPeakWindowRange(activeDealsPerHour);
-//        return PeakTimeResponse(hour1, hour2)
+        final var maxActiveDeals = Arrays.stream(activeDealsPerHour).max().orElse(0);
+        if (maxActiveDeals == 0) {
+            return PeakTimeResponse.empty();
+        }
+
+        final var peakRange = findPeakWindowRange(activeDealsPerHour, maxActiveDeals);
+
+        final var peakStart = LocalTime.of(peakRange.startHour(), 0);
+        final var peakEnd = LocalTime.of(peakRange.endHour() + 1, 0);
+
+        return new PeakTimeResponse(TimeUtils.format(peakStart), TimeUtils.format(peakEnd));
     }
 
     private int[] countActiveDealsPerHour(List<DealWindow> dealWindows) {
-        final var counts = new int[HOURS_PER_DAY];
+        int[] counts = new int[HOURS_PER_DAY];
 
-//        TODO: Map over each hour and filter each dealWindow where the deal is active within
+        for (DealWindow window : dealWindows) {
+            for (int hour = 0; hour < HOURS_PER_DAY; hour++) {
+                final var sampleTime = LocalTime.of(hour, 30);
+                if (TimeUtils.isDealActive(sampleTime, window.dealStart(), window.dealEnd())) {
+                    counts[hour]++;
+                }
+            }
+        }
 
         return counts;
     }
 
-    private HourRange findBestPeakWindowRange(int[] countsPerHour) {
-//      TODO: Compare all counts to determine when the overlap is
+    private HourRange findPeakWindowRange(int[] counts, int peakValue) {
+//        TODO: Determine Peak Window by calculating longest consecutive range exactly max value
+//         -> alternatively need to look at either sliding window or give threshold to allow for small dips
+//         e.g. 3-5pm 10 deals, 5-6pm 7 deals then 6-9pm again 10 deals. that whole time can then potentially be a window?
 
         return new HourRange(1, 2);
     }
@@ -50,25 +70,16 @@ public class PeakWindowService {
         return client.getChallengeData()
                 .restaurants()
                 .stream()
-                .flatMap(restaurant -> {
-                    var restaurantOpen = TimeUtils.parseOrNull(restaurant.open());
-                    var restaurantClose = TimeUtils.parseOrNull(restaurant.close());
+                .flatMap(restaurant -> restaurant.deals().stream()
+                        .map(deal -> {
+                            final var dealStart = Optional.ofNullable(TimeUtils.parseOrNull(deal.start()))
+                                    .orElse(TimeUtils.parseOrNull(restaurant.open()));
+                            final var dealEnd = Optional.ofNullable(TimeUtils.parseOrNull(deal.end()))
+                                    .orElse(TimeUtils.parseOrNull(restaurant.close()));
 
-                    return restaurant.deals().stream()
-                            .map(deal -> {
-                                final var dealStart = Optional.ofNullable(TimeUtils.parseOrNull(deal.start()))
-                                        .orElse(restaurantOpen);
-                                final var dealEnd = Optional.ofNullable(TimeUtils.parseOrNull(deal.end()))
-                                        .orElse(restaurantClose);
-// TODO: refactor if restaurant timings not needed as deal times defaults to it anyway
-                                return new DealWindow(
-                                        restaurantOpen,
-                                        restaurantClose,
-                                        dealStart,
-                                        dealEnd
-                                );
-                            });
-                }).toList();
+                            return new DealWindow(dealStart, dealEnd);
+                        })
+                ).toList();
     }
 
 }

@@ -60,4 +60,8 @@ public class TimeUtils {
         final var timeIsAfterDealStart = !time.isBefore(start);
         return timeIsAfterDealStart || time.isBefore(end);
     }
+
+    public static String format(LocalTime time) {
+        return FORMATTER.format(time).toLowerCase(Locale.ENGLISH);
+    }
 }
