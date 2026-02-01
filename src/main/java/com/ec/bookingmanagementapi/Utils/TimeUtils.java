@@ -35,20 +35,9 @@ public class TimeUtils {
         }
     }
 
-    public static boolean isDealActive(LocalTime time, LocalTime start, LocalTime end) {
-        if (time == null || start == null || end == null) return false;
-
-        try {
-            return withinInclusive(time, start, end);
-        } catch (IllegalArgumentException invalidUpstreamTime) {
-            return false;
-        }
-    }
-
     /*Ensuring only the start time is inclusive and not end time as deals at closing time won't matter*/
-    private static boolean withinInclusive(LocalTime time, LocalTime start, LocalTime end) {
+    public static boolean isDealActive(LocalTime time, LocalTime start, LocalTime end) {
         final var windowIsInSameDay = !end.isBefore(start);
-
 
         if (windowIsInSameDay) {
             // Same day window (Example: 14:00 -> 20:00)
